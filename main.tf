@@ -105,3 +105,79 @@ resource "aws_lb_listener" "ninekicks" {
   }
 }
 
+
+data "aws_iam_role" "ecs_task_execution_role" {
+  name = "ecsTaskExecutionRole"
+}
+
+# Use Fargate to run the task
+resource "aws_ecs_task_definition" "ninekicks" {
+  family                   = "${var.repo}-app"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 1024
+  memory                   = 2048
+  execution_role_arn       = data.aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode(
+    [
+      {
+        "image" : "815752282021.dkr.ecr.ap-southeast-1.amazonaws.com/nine-kicks:v0.1.1",
+        "cpu" : 1024,
+        "memory" : 2048,
+        "name" : var.repo,
+        "networkMode" : "awsvpc",
+        "portMappings" : [
+          {
+            "containerPort" : 8080,
+            "hostPort" : 8080
+          }
+        ]
+      }
+  ])
+}
+
+resource "aws_security_group" "ninekicks_task" {
+  name   = "${var.repo}-task-sg"
+  vpc_id = aws_vpc.default.id
+
+  ingress {
+    protocol        = "tcp"
+    from_port       = 8080
+    to_port         = 8080
+    security_groups = [aws_security_group.lb.id]
+  }
+
+  egress {
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_ecs_cluster" "main" {
+  name = "ninekicks-cluster"
+}
+
+resource "aws_ecs_service" "ninekicks" {
+  name            = "${var.repo}-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.ninekicks.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    security_groups = [aws_security_group.ninekicks_task.id]
+    subnets         = aws_subnet.private.*.id
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.ninekicks.id
+    container_name   = var.repo
+    container_port   = 8080
+  }
+
+  depends_on = [aws_lb_listener.ninekicks]
+}
+
