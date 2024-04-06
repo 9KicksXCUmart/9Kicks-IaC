@@ -59,3 +59,49 @@ resource "aws_route_table_association" "private" {
   subnet_id      = element(aws_subnet.private.*.id, count.index)
   route_table_id = element(aws_route_table.private.*.id, count.index)
 }
+
+resource "aws_security_group" "lb" {
+  name   = "${var.repo}-alb-sg"
+  vpc_id = aws_vpc.default.id
+
+  ingress {
+    protocol    = "tcp"
+    from_port   = 80
+    to_port     = 80
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+
+resource "aws_lb" "default" {
+  name            = "${var.repo}-lb"
+  subnets         = aws_subnet.public.*.id
+  security_groups = [aws_security_group.lb.id]
+}
+
+resource "aws_lb_target_group" "ninekicks" {
+  name        = "${var.repo}-target-group"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.default.id
+  target_type = "ip"
+}
+
+resource "aws_lb_listener" "ninekicks" {
+  load_balancer_arn = aws_lb.default.id
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    target_group_arn = aws_lb_target_group.ninekicks.id
+    type             = "forward"
+  }
+}
+

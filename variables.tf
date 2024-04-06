@@ -1,6 +1,6 @@
 variable "repo" {
   type    = string
-  default = "nine-kicks-go"
+  default = "ninekicks-go"
 }
 
 variable "vpc_cidr" {
