@@ -122,7 +122,7 @@ resource "aws_ecs_task_definition" "ninekicks" {
   container_definitions = jsonencode(
     [
       {
-        "image" : "815752282021.dkr.ecr.ap-southeast-1.amazonaws.com/nine-kicks:v0.1.1",
+        "image" : "815752282021.dkr.ecr.ap-southeast-1.amazonaws.com/nine-kicks-go:${var.go_tag}",
         "cpu" : 1024,
         "memory" : 2048,
         "name" : var.repo,
